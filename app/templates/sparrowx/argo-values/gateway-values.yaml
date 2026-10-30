@@ -1,0 +1,7 @@
+apis:
+  [[ service_name ]]:
+    routeName: [[ service_name ]]
+    path: [[ api_path ]]
+    hostname: [[ hostname ]]
+    backendService: [[ service_name ]]
+    servicePort: 80

@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: [[ service_name ]]-[[ environment ]]-resources
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    sparrowx.io/category: infrastructure
+    sparrowx.io/app: [[ service_name ]]
+    sparrowx.io/environment: [[ environment ]]
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: sparrowx-[[ environment ]]
+  sources:
+    - repoURL: https://github.com/SparrowX-Labs/Custom-Apps-HelmCharts.git
+      targetRevision: main
+      path: [[ environment ]]/infrastructure-crossplane-helmchart
+      helm:
+        valueFiles:
+          - $values/[[ environment ]]/values/infrastructure.yaml
+          - $crossplane/environments/[[ environment ]]/[[ service_name ]].yaml
+    - repoURL: https://github.com/SparrowX-Labs/ArgoCD-Apps.git
+      targetRevision: main
+      ref: values
+    - repoURL: https://github.com/SparrowX-Labs/crossplane.git
+      targetRevision: main
+      ref: crossplane
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: crossplane-system

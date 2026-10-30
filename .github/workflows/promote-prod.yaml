@@ -1,0 +1,133 @@
+name: Manual Promote to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type PROMOTE to confirm promotion to Production
+        required: true
+        type: string
+
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+
+jobs:
+  confirm-promotion:
+    name: Confirm Production Promotion
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate confirmation
+        if: inputs.confirmation != 'PROMOTE'
+        run: |
+          echo "Invalid confirmation."
+          echo "You must type PROMOTE to continue."
+          exit 1
+
+  # Promoting Image to Production ECR repo
+  copy-image:
+    name: Copy Image to Production ECR
+    needs: confirm-promotion
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/copy-image.yaml@v2.0.0
+    with:
+      source-env-params-file: helm-values-dev.yaml
+      target-env-params-file: helm-values-prod.yaml
+
+  verify-target-image-signature:
+    name: Verify Target Image Signature
+    needs: copy-image
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/verify-image-signature.yaml@v2.0.0
+    with:
+      env-params-file: helm-values-prod.yaml
+      image-tag: "prod-candidate"
+
+  argosync-candidate:
+    name: argosync-candidate
+    needs: verify-target-image-signature
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/argosync.yaml@v2.0.0
+    with:
+      environment: prod
+      env-params-file: helm-values-prod.yaml
+      image-tag: "prod-candidate"
+    secrets:
+      ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+      ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+
+  # Run smoke tests against the deployed service.
+  smoke-test:
+    name: Smoke Test Production
+    needs: argosync-candidate
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/smoke-test.yaml@v2.0.0
+    with:
+      base-url: ${{ vars.PROD_BASE_URL }}
+      health-path: ${{ vars.HEALTH_CHECK_PATH }}
+      timeout: '120'
+
+  api-test:
+    name: Read-only Production API Tests
+    needs: smoke-test
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/api-test.yaml@v2.0.0
+    with:
+      runtime: python
+      base-url: ${{ vars.PROD_BASE_URL }}
+      test-path: api-tests/prod
+      test-command: pytest -q api-tests/prod
+      requirements-file: requirements-dev.txt
+
+  prod-quality-gate:
+    name: Prod Quality Gate
+    needs: api-test
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/prod-quality-gate.yaml@v2.0.0
+    with:
+      api-test-status: ${{ needs.api-test.outputs.status }}
+
+  #################################
+  # CASE: Quality Gate Passes !!! #
+  #################################
+  
+  # Promote Image to Prod Deployed
+  promote-image:
+    name: Promote Image
+    needs: prod-quality-gate
+    if: needs.prod-quality-gate.outputs.status == 'passed'
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/promote-image.yaml@v2.0.0
+    with:
+      env-params-file: helm-values-prod.yaml
+      origin-image-tag: "prod-candidate"
+      new-image-tag: "prod-deployed"
+
+  #Update deployment to reflect the successful promotion status
+  argosync-deployed:
+    name: argosync-deployed
+    needs: promote-image
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/argosync.yaml@v2.0.0
+    with:
+      environment: prod
+      env-params-file: helm-values-prod.yaml
+      image-tag: "prod-deployed"
+    secrets:
+      ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+      ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+
+  ################################
+  # CASE: Quality Gate Fails !!! #
+  ################################
+  # No Promotion 
+  # prod-deployed still preserves the current stable deployment artifact
+  # Rolling Back to the stable artifact
+  rollback:
+    name: rollback
+    needs: prod-quality-gate
+    if: needs.prod-quality-gate.outputs.status == 'failed'
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/argosync.yaml@v2.0.0
+    with:
+      environment: prod
+      env-params-file: helm-values-prod.yaml
+      image-tag: "prod-deployed"
+    secrets:
+      ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+      ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}

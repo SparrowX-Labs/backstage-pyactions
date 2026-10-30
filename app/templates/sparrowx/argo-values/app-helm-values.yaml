@@ -1,0 +1,33 @@
+projectName: sparrowx
+environment: [[ environment ]]
+
+serviceName: [[ service_name ]]
+
+replicaCount: [[ replica_count ]]
+
+appPort: [[ container_port ]]
+# extraAnnotations:
+# extraLabels:
+
+resources:
+  size: [[ pod_size ]]
+
+{% if database_enabled %}
+database:
+  enabled: true
+  name: [[ database_name ]]
+  engine: [[ database_engine ]]
+  port: 5432
+  host: [[ service_name ]]-postgres.[[ environment ]].sparrowx.internal
+{% endif %}
+
+servicemonitor:
+  enabled: [[ enable_service_monitor | lower ]]
+
+probePath: [[ internal_health_path ]]
+livenessProbe:
+  enabled: [[ enable_probes | lower ]]
+readinessProbe:
+  enabled: [[ enable_probes | lower ]]
+startupProbe:
+  enabled: [[ enable_probes | lower ]]

@@ -1,0 +1,50 @@
+name: PR Validations Pipeline
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    branches: [main]
+    paths:
+      - '**'
+      - '!**/*.md'
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+
+jobs:
+  test:
+    name: Test
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/test.yaml@v2.0.0
+    with:
+      env-params-file: helm-values-dev.yaml
+      runtime: [[ runtime ]]
+      database: [[ database_enabled | lower ]]
+
+  source-security-scan:
+    name: Source Security Scan
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/source-security-scan.yaml@v2.0.0
+    with:
+      runtime: [[ runtime ]]
+
+  build:
+    name: Build
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/build.yaml@v2.0.0
+    with:
+      env-params-file: helm-values-dev.yaml
+{% if is_frontend %}
+      frontend: true
+{% endif %}
+      authoritative-build: false
+
+  pr-quality-gate:
+    name: PR Quality Gate
+    needs: [test, source-security-scan, build]
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/pr-quality-gate.yaml@v2.0.0
+    with:
+      source-security-artifact: ${{ needs.source-security-scan.outputs.artifact-name }}
+      security-policy-file: app-sec-policy.yaml

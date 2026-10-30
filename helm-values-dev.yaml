@@ -1,0 +1,46 @@
+projectName: sparrowx
+environment: dev
+
+serviceName: backstage-pyactions
+
+replicaCount: 1
+
+appPort: 8000
+# extraAnnotations:
+# extraLabels:
+
+resources:
+  size: medium
+
+servicemonitor:
+  enabled: true
+
+probePath: /
+livenessProbe:
+  enabled: true
+readinessProbe:
+  enabled: true
+startupProbe:
+  enabled: true
+
+
+# extraObjects:
+#   - apiVersion: networking.k8s.io/v1
+#     kind: NetworkPolicy
+#     metadata:
+#       name: allow-ingress-from-backstage-to-fastapi
+#       namespace: backstage
+#     spec:
+#       podSelector:
+#         matchLabels:
+#           app: backstage-fastapi
+#       policyTypes:
+#         - Ingress
+#       ingress:
+#         - from:
+#             - podSelector:
+#                 matchLabels:
+#                   app: backstage
+#           ports:
+#             - protocol: TCP
+#               port: 8000

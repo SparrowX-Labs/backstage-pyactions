@@ -1,0 +1,120 @@
+name: Manual Promote to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type PROMOTE to confirm promotion to Production
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+
+jobs:
+  confirm-promotion:
+    name: Confirm Production Promotion
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate confirmation
+        if: inputs.confirmation != 'PROMOTE'
+        run: |
+          echo "Invalid confirmation."
+          echo "You must type PROMOTE to continue."
+          exit 1
+
+  copy-image:
+    name: Copy Image to Production ECR
+    needs: confirm-promotion
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/copy-image.yaml@v2.0.0
+    with:
+      source-env-params-file: helm-values-dev.yaml
+      target-env-params-file: helm-values-prod.yaml
+
+  verify-target-image-signature:
+    name: Verify Target Image Signature
+    needs: copy-image
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/verify-image-signature.yaml@v2.0.0
+    with:
+      env-params-file: helm-values-prod.yaml
+      image-tag: prod-candidate
+
+  argosync-candidate:
+    name: Sync Production Candidate
+    needs: verify-target-image-signature
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/argosync.yaml@v2.0.0
+    with:
+      environment: prod
+      env-params-file: helm-values-prod.yaml
+      image-tag: prod-candidate
+    secrets:
+      ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+      ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+
+  smoke-test:
+    name: Smoke Test Production
+    needs: argosync-candidate
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/smoke-test.yaml@v2.0.0
+    with:
+      base-url: ${{ vars.PROD_BASE_URL }}
+      health-path: ${{ vars.HEALTH_CHECK_PATH }}
+      timeout: '120'
+
+  api-test:
+    name: [[ "Frontend" if is_frontend else "Read-only" ]] Production Tests
+    needs: smoke-test
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/api-test.yaml@v2.0.0
+    with:
+      runtime: [[ runtime ]]
+      base-url: ${{ vars.PROD_BASE_URL }}
+      test-path: [[ "api-tests" if is_frontend else "api-tests/prod" ]]
+      test-command: [[ "node api-tests/run_web_portal_tests.mjs" if is_frontend else "pytest -q api-tests/prod" ]]
+{% if not is_frontend %}
+      requirements-file: requirements-dev.txt
+{% endif %}
+
+  prod-quality-gate:
+    name: Production Quality Gate
+    needs: api-test
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/prod-quality-gate.yaml@v2.0.0
+    with:
+      api-test-status: ${{ needs.api-test.outputs.status }}
+
+  promote-image:
+    name: Promote Image
+    needs: prod-quality-gate
+    if: needs.prod-quality-gate.outputs.status == 'passed'
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/promote-image.yaml@v2.0.0
+    with:
+      env-params-file: helm-values-prod.yaml
+      origin-image-tag: prod-candidate
+      new-image-tag: prod-deployed
+
+  argosync-deployed:
+    name: Sync Production Deployment
+    needs: promote-image
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/argosync.yaml@v2.0.0
+    with:
+      environment: prod
+      env-params-file: helm-values-prod.yaml
+      image-tag: prod-deployed
+    secrets:
+      ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+      ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+
+  rollback:
+    name: Restore Stable Production Image
+    needs: prod-quality-gate
+    if: needs.prod-quality-gate.outputs.status == 'failed'
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/argosync.yaml@v2.0.0
+    with:
+      environment: prod
+      env-params-file: helm-values-prod.yaml
+      image-tag: prod-deployed
+    secrets:
+      ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+      ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}

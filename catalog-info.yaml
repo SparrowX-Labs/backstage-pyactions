@@ -1,0 +1,17 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: backstage-pyactions
+  description: Backstage-Pyactions provides a python powered automation execution layer for Backstage
+  annotations:
+    backstage.io/kubernetes-id: backstage-pyactions
+    github.com/project-slug: SparrowX-Labs/backstage-pyactions
+  tags:
+    - backstage-pyactions
+    - dev
+    - idp
+spec:
+  type: service
+  lifecycle: experimental
+  owner: mohamed-awad
+  

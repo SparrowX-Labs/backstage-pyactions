@@ -1,0 +1,19 @@
+service:
+  name: [[ service_name ]]
+
+database:
+  enabled: [[ database_enabled | lower ]]
+{% if database_enabled %}
+  engine: [[ database_engine ]]
+  name: "[[ database_name ]]"
+  size: [[ database_size ]]
+  storage: [[ database_storage ]]
+  multiAZ: [[ multi_az_enabled | lower ]]
+{% endif %}
+
+s3:
+  enabled: [[ object_storage_enabled | lower ]]
+{% if object_storage_enabled %}
+  name: "[[ object_storage_name ]]"
+  forceDestroy: false
+{% endif %}

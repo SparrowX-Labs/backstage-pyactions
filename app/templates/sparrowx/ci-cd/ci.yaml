@@ -1,0 +1,78 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**'
+      - '!**/*.md'
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+
+jobs:
+  pre-build:
+    name: Pre-Build
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/pre-build.yaml@v2.0.0
+    with:
+      env-params-file: helm-values-dev.yaml
+
+  build:
+    name: Build
+    needs: pre-build
+    if: needs.pre-build.outputs.build-needed == 'true'
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/build.yaml@v2.0.0
+    with:
+      env-params-file: helm-values-dev.yaml
+{% if is_frontend %}
+      frontend: true
+{% endif %}
+      authoritative-build: true
+
+  image-security-scan:
+    name: Image Security Scan
+    needs: build
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/image-security-scan.yaml@v2.0.0
+    with:
+      env-params-file: helm-values-dev.yaml
+      image-tag: ${{ needs.build.outputs.image-tag }}
+
+  ci-quality-gate:
+    name: CI Quality Gate
+    needs: image-security-scan
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/ci-quality-gate.yaml@v2.0.0
+    with:
+      image-security-artifact: ${{ needs.image-security-scan.outputs.artifact-name }}
+      security-policy-file: app-sec-policy.yaml
+
+  sign-image:
+    name: Sign Image
+    needs: [ci-quality-gate, build]
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/sign-image.yaml@v2.0.0
+    with:
+      env-params-file: helm-values-dev.yaml
+      image-tag: ${{ needs.build.outputs.image-tag }}
+
+  attest-image:
+    name: Attest Image
+    needs: [image-security-scan, sign-image]
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/attest-image.yaml@v2.0.0
+    with:
+      env-params-file: helm-values-dev.yaml
+      image-tag: ${{ needs.sign-image.outputs.image-uri }}
+      image-security-artifact: ${{ needs.image-security-scan.outputs.artifact-name }}
+
+  promote-image:
+    name: Promote Image
+    needs: [sign-image, attest-image]
+    if: needs.sign-image.outputs.status == 'passed' && needs.attest-image.outputs.status == 'passed'
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/promote-image.yaml@v2.0.0
+    with:
+      env-params-file: helm-values-dev.yaml
+      origin-image-tag: git-sha
+      new-image-tag: dev-candidate

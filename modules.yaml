@@ -12,6 +12,11 @@
 
 modules:
 
+  - name: Create New API
+    path: app.modules.create-new-api
+    route: /create-new-service
+    description: Create and configure a Python backend API or Node.js frontend service
+
   # --- Basic testing modules ---
   - name: List Directory
     path: app.modules.examples.basic-testing.list_directory

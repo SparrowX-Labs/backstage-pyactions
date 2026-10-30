@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: [[ service_name ]]-[[ environment ]]
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    sparrowx.io/category: applications
+    sparrowx.io/app: [[ service_name ]]
+    sparrowx.io/environment: [[ environment ]]
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: sparrowx-[[ environment ]]
+  sources:
+    - repoURL: https://github.com/SparrowX-Labs/Custom-Apps-HelmCharts.git
+      targetRevision: main
+      path: [[ environment ]]/application-helmchart
+      helm:
+        valueFiles:
+          - $values/helm-values-[[ environment ]].yaml
+    - repoURL: [[ repository_url ]]
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: [[ environment ]]
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

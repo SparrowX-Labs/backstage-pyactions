@@ -1,0 +1,99 @@
+name: Automated Deployment to Development
+
+on:
+  workflow_run:
+    workflows: [CI Pipeline]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+
+jobs:
+  verify-image-signature:
+    name: Verify Image Signature
+    if: github.event.workflow_run.conclusion == 'success'
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/verify-image-signature.yaml@v2.0.0
+    with:
+      env-params-file: helm-values-dev.yaml
+      image-tag: dev-candidate
+
+  argosync-candidate:
+    name: Sync Development Candidate
+    needs: verify-image-signature
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/argosync.yaml@v2.0.0
+    with:
+      environment: dev
+      env-params-file: helm-values-dev.yaml
+      image-tag: dev-candidate
+    secrets:
+      ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+      ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+
+  smoke-test:
+    name: Smoke Test Development
+    needs: argosync-candidate
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/smoke-test.yaml@v2.0.0
+    with:
+      base-url: ${{ vars.DEV_BASE_URL }}
+      health-path: ${{ vars.HEALTH_CHECK_PATH }}
+      timeout: '120'
+
+  api-test:
+    name: [[ "Frontend" if is_frontend else "Full" ]] Development Tests
+    needs: smoke-test
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/api-test.yaml@v2.0.0
+    with:
+      runtime: [[ runtime ]]
+      base-url: ${{ vars.DEV_BASE_URL }}
+      test-path: [[ "api-tests" if is_frontend else "api-tests/dev" ]]
+      test-command: [[ "node api-tests/run_web_portal_tests.mjs" if is_frontend else "pytest -q api-tests/dev" ]]
+{% if not is_frontend %}
+      requirements-file: requirements-dev.txt
+{% endif %}
+
+  dast:
+    name: Dynamic Application Security Scan
+    needs: smoke-test
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/dast.yaml@v2.0.0
+    with:
+      runtime: [[ runtime ]]
+      base-url: ${{ vars.DEV_BASE_URL }}
+{% if not is_frontend %}
+      api-spec-path: [[ api_path ]]/openapi.json
+{% endif %}
+
+  dev-quality-gate:
+    name: Dev Quality Gate
+    needs: [api-test, dast]
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/dev-quality-gate.yaml@v2.0.0
+    with:
+      dast-artifact: ${{ needs.dast.outputs.artifact-name }}
+      security-policy-file: app-sec-policy.yaml
+      api-test-status: ${{ needs.api-test.outputs.status }}
+
+  promote-image:
+    name: Promote Image
+    needs: dev-quality-gate
+    if: needs.dev-quality-gate.outputs.status == 'passed'
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/promote-image.yaml@v2.0.0
+    with:
+      env-params-file: helm-values-dev.yaml
+      origin-image-tag: dev-candidate
+      new-image-tag: dev-deployed
+
+  argosync-deployed:
+    name: Sync Development Deployment
+    needs: promote-image
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/argosync.yaml@v2.0.0
+    with:
+      environment: dev
+      env-params-file: helm-values-dev.yaml
+      image-tag: dev-deployed
+    secrets:
+      ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+      ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}

@@ -1,0 +1,57 @@
+name: Manual Rollback Production To Selected Image Tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type ROLLBACK to confirm Rolling back the Production image
+        required: true
+        type: string
+      image-tag:
+        description: The tag of the image to rollback to
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+    
+jobs:
+  confirm-rollback:
+    name: Confirm Production Rollback
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate confirmation
+        if: inputs.confirmation != 'ROLLBACK'
+        run: |
+          echo "Invalid confirmation."
+          echo "You must type ROLLBACK to continue."
+          exit 1
+
+  # # Rolling Back to the stable artifact/state
+  # Suggested Image Tag: prod-previous
+  # Or any specific git-sha image tags for specific rollbacks to older deployemnts
+  rollback:
+    name: rollback
+    needs: confirm-rollback
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/argosync.yaml@v2.0.0
+    with:
+      environment: prod
+      env-params-file: helm-values-prod.yaml
+      image-tag: ${{ inputs.image-tag }}
+    secrets:
+      ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+      ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+
+  # Run smoke tests against the deployed service.
+  smoke-test:
+    name: Smoke Test Production
+    needs: rollback
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/smoke-test.yaml@v2.0.0
+    with:
+      base-url: ${{ vars.PROD_BASE_URL }}
+      health-path: ${{ vars.PROD_HEALTH_PATH }}
+      timeout: '120'

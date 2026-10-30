@@ -13,4 +13,6 @@ COPY main.py .
 COPY modules.yaml .
 COPY app/ app/
 
+EXPOSE 8000
+
 CMD ["python", "main.py"]

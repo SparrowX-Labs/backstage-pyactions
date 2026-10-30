@@ -1,0 +1,16 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: [[ service_name ]]
+  description: [[ service_name ]] [[ "frontend application" if is_frontend else "backend API" ]]
+  annotations:
+    backstage.io/kubernetes-id: [[ service_name ]]
+    github.com/project-slug: [[ github_owner ]]/[[ service_name ]]
+  tags:
+    - [[ service_name ]]
+    - application
+    - [[ "frontend" if is_frontend else "backend" ]]
+spec:
+  type: service
+  lifecycle: experimental
+  owner: group:platform-team
