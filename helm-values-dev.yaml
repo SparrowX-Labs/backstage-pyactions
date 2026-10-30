@@ -23,6 +23,21 @@ readinessProbe:
 startupProbe:
   enabled: true
 
+container:
+  env:
+    - name: APP_NAME
+      value: Backstage-PyActions
+    - name: APP_PORT
+      value: "8000"
+    - name: DEBUG
+      value: "false"
+    - name: GIT_PROVIDER
+      value: github
+    - name: GITHUB_TOKEN
+      valueFrom:
+        secretKeyRef:
+          name: backstage-pyactions-secrets
+          key: GITHUB_TOKEN
 
 # extraObjects:
 #   - apiVersion: networking.k8s.io/v1

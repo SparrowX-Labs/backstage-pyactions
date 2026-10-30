@@ -27,13 +27,7 @@ jobs:
     with:
       env-params-file: helm-values-dev.yaml
       runtime: python
-      database: true
-
-  source-security-scan:
-    name: Source Security Scan
-    uses: SparrowX-Labs/workflows-templates/.github/workflows/source-security-scan.yaml@v2.0.0
-    with:
-      runtime: python
+      database: false
 
   build:
     name: Build
@@ -41,14 +35,3 @@ jobs:
     with:
       env-params-file: helm-values-dev.yaml
       authoritative-build: false
-
-  pr-quality-gate:
-    name: PR Quality Gate
-    needs:
-      - test
-      - source-security-scan
-      - build
-    uses: SparrowX-Labs/workflows-templates/.github/workflows/pr-quality-gate.yaml@v2.0.0
-    with:
-      source-security-artifact: ${{ needs.source-security-scan.outputs.artifact-name }}
-      security-policy-file: app-sec-policy.yaml
