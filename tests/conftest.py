@@ -1,9 +1,11 @@
 import pytest
-from fastapi.testclient import TestClient
+import httpx
 
 from main import app
 
 
 @pytest.fixture
-def client():
-    return TestClient(app)
+async def client():
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as test_client:
+        yield test_client

@@ -3,8 +3,8 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class CreateNewApiParams(BaseModel):
-    """Input contract for the Backstage Create New Python API template."""
+class CreateNewServiceParams(BaseModel):
+    """Input contract for the Backstage Create New Service template."""
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -21,9 +21,9 @@ class CreateNewApiParams(BaseModel):
     )
     github_owner: str = Field(alias="github-owner", min_length=1)
     repository_url: str = Field(default="", alias="repository-url")
-    provision_prod: bool = Field(alias="provision-prod")
+    prod_required: bool = Field(alias="prod-required")
 
-    # Python application configuration.
+    # Application configuration. The runtime selects backend or frontend behavior.
     runtime: Literal["python", "node"]
     base_image: str = Field(alias="base-image", min_length=1)
     container_port: int = Field(alias="container-port", ge=1, le=65535)
@@ -68,8 +68,3 @@ class CreateNewApiParams(BaseModel):
     )
     enable_probes_prod: bool = Field(default=False, alias="enable-probes-prod")
     enable_service_monitor_prod: bool = Field(default=False, alias="enable-service-monitor-prod")
-
-
-# Kept temporarily so the existing module import remains valid while its
-# handler is migrated from the old example payload to CreateNewApiParams.
-TestGithubProviderParams = CreateNewApiParams

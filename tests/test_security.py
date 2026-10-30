@@ -1,15 +1,15 @@
-import os
+import httpx
 
-from fastapi.testclient import TestClient
+from tests.test_discovery import valid_create_service_payload
 
 
-def test_no_auth_when_token_not_set(client):
+async def test_no_auth_when_token_not_set(client):
     """When API_TOKEN is not set, requests pass through without auth."""
-    response = client.get("/health")
+    response = await client.get("/health")
     assert response.status_code == 200
 
 
-def test_auth_rejects_missing_token(monkeypatch):
+async def test_auth_rejects_missing_token(monkeypatch):
     """When API_TOKEN is set, requests without token are rejected."""
     monkeypatch.setenv("API_TOKEN", "test-secret-token")
 
@@ -22,14 +22,10 @@ def test_auth_rejects_missing_token(monkeypatch):
     sec.settings = cfg.settings
 
     from main import app
-    test_client = TestClient(app)
-
-    response = test_client.post(
-        "/create-new-service",
-        json={
-            "ticket": "SRE-1234",
-            "service-name": "test-svc",
-            "service-path": "/backend",
-        },
-    )
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as test_client:
+        response = await test_client.post(
+            "/create-new-service",
+            json=valid_create_service_payload(),
+        )
     assert response.status_code == 403

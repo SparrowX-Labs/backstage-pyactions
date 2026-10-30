@@ -7,7 +7,7 @@ from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
 from app.core.logging import ActionLogger
 from app.core.dependencies import get_git_provider
-from .schemas import CreateNewApiParams
+from .schemas import CreateNewServiceParams
 
 
 ORG_REPOS = {
@@ -28,7 +28,7 @@ def _repository_path(repository_url: str) -> str:
     return "/".join(parts)
 
 
-def _validate_request(params: CreateNewApiParams) -> None:
+def _validate_request(params: CreateNewServiceParams) -> None:
     """Validate cross-field constraints before making any GitHub changes."""
 
     expected_prefix = "node:" if params.runtime == "node" else "python:"
@@ -40,22 +40,22 @@ def _validate_request(params: CreateNewApiParams) -> None:
             raise ValueError("repository-url is required when create-repository is false")
         _repository_path(params.repository_url)
 
-    if params.provision_prod:
+    if params.prod_required:
         if not params.prod_hostname:
-            raise ValueError("prod-hostname is required when provision-prod is true")
+            raise ValueError("prod-hostname is required when prod-required is true")
         if params.replica_count_prod < 1:
-            raise ValueError("replica-count-prod must be at least 1 when provision-prod is true")
+            raise ValueError("replica-count-prod must be at least 1 when prod-required is true")
         if not params.pod_size_prod:
-            raise ValueError("pod-size-prod is required when provision-prod is true")
+            raise ValueError("pod-size-prod is required when prod-required is true")
 
 
-def _database_name(params: CreateNewApiParams) -> str:
+def _database_name(params: CreateNewServiceParams) -> str:
     if params.database_name:
         return params.database_name
     return f"{params.service_name.split('-')[0]}-db"
 
 
-def _context(params: CreateNewApiParams, environment: str) -> dict:
+def _context(params: CreateNewServiceParams, environment: str) -> dict:
     is_frontend = params.runtime == "node"
     database_enabled = params.database_enabled and not is_frontend
     hostname = params.dev_hostname if environment == "dev" else params.prod_hostname
@@ -86,11 +86,11 @@ def _context(params: CreateNewApiParams, environment: str) -> dict:
         "enable_service_monitor": params.enable_service_monitor_dev if environment == "dev" else params.enable_service_monitor_prod,
         "github_owner": params.github_owner,
         "repository_url": params.repository_url,
-        "provision_prod": params.provision_prod,
+        "prod_required": params.prod_required,
     }
 
 
-def _render_templates(env: Environment, params: CreateNewApiParams, environment: str) -> dict[str, str]:
+def _render_templates(env: Environment, params: CreateNewServiceParams, environment: str) -> dict[str, str]:
     context = _context(params, environment)
     prefix = "frontend" if params.runtime == "node" else "backend"
 
@@ -112,7 +112,7 @@ def _render_templates(env: Environment, params: CreateNewApiParams, environment:
 
 
 def _render_environment_files(
-    env: Environment, params: CreateNewApiParams, environment: str, repository_url: str
+    env: Environment, params: CreateNewServiceParams, environment: str, repository_url: str
 ) -> dict[str, dict[str, str]]:
     context = _context(params, environment)
     context["repository_url"] = repository_url
@@ -157,7 +157,7 @@ def _provision_repository(
     return pull_request
 
 
-async def handler(params: CreateNewApiParams):
+async def handler(params: CreateNewServiceParams):
     logger = ActionLogger()
     errors: list[str] = []
     phase_status: dict[str, str] = {}
@@ -179,7 +179,7 @@ async def handler(params: CreateNewApiParams):
             logger.append("Frontend selected: database provisioning is disabled for the generated infrastructure")
 
         service_files = _render_templates(templates, params, "dev")
-        if params.provision_prod:
+        if params.prod_required:
             service_files["helm-values-prod.yaml"] = templates.get_template(
                 "sparrowx/argo-values/app-helm-values.yaml"
             ).render(
@@ -191,7 +191,7 @@ async def handler(params: CreateNewApiParams):
             "argocd": {},
             "gateway": {},
         }
-        environments = ("dev", "prod") if params.provision_prod else ("dev",)
+        environments = ("dev", "prod") if params.prod_required else ("dev",)
         for environment in environments:
             generated = _render_environment_files(templates, params, environment, repository_url)
             for target, files in generated.items():

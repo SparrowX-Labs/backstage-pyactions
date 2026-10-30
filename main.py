@@ -21,9 +21,8 @@ async def value_error_handler(request: Request, exc: ValueError):
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    body = (await request.body()).decode("utf-8", errors="replace")
     logger.info(
-        f"Request: {request.method} {request.url.path} | Body: {body[:500]}"
+        f"Request: {request.method} {request.url.path}"
     )
     start = time.time()
     response = await call_next(request)

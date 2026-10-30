@@ -12,8 +12,8 @@
 
 modules:
 
-  - name: Create New API
-    path: app.modules.create-new-api
+  - name: Create New Service
+    path: app.modules.create-new-service
     route: /create-new-service
     description: Create and configure a Python backend API or Node.js frontend service
 
