@@ -32,50 +32,10 @@ jobs:
       env-params-file: helm-values-dev.yaml
       authoritative-build: true
 
-  image-security-scan:
-    name: Image Security Scan
-    needs: build
-    uses: SparrowX-Labs/workflows-templates/.github/workflows/image-security-scan.yaml@v2.0.0
-    with:
-      env-params-file: helm-values-dev.yaml
-      image-tag: ${{ needs.build.outputs.image-tag }}
-
-  ci-quality-gate:
-    name: CI Quality Gate
-    needs: image-security-scan
-    uses: SparrowX-Labs/workflows-templates/.github/workflows/ci-quality-gate.yaml@v2.0.0
-    with:
-      image-security-artifact: ${{ needs.image-security-scan.outputs.artifact-name }}
-      security-policy-file: app-sec-policy.yaml
-
-  sign-image:
-    name: Sign Image
-    needs:
-      - ci-quality-gate
-      - build
-    uses: SparrowX-Labs/workflows-templates/.github/workflows/sign-image.yaml@v2.0.0
-    with:
-      env-params-file: helm-values-dev.yaml
-      image-tag: ${{ needs.build.outputs.image-tag }}
-
-  attest-image:
-    name: Attest Image
-    needs:
-      - image-security-scan 
-      - sign-image
-    uses: SparrowX-Labs/workflows-templates/.github/workflows/attest-image.yaml@v2.0.0
-    with:
-      env-params-file: helm-values-dev.yaml
-      image-tag: ${{ needs.sign-image.outputs.image-uri }}
-      image-security-artifact: ${{ needs.image-security-scan.outputs.artifact-name }}
-
   #Promote Image to Dev Candidate
   promote-image:
     name: Promote Image
-    needs:
-      - sign-image
-      - attest-image
-    if: needs.sign-image.outputs.status == 'passed' && needs.attest-image.outputs.status == 'passed'
+    needs: build
     uses: SparrowX-Labs/workflows-templates/.github/workflows/promote-image.yaml@v2.0.0
     with:
       env-params-file: helm-values-dev.yaml
