@@ -15,7 +15,7 @@ resources:
 servicemonitor:
   enabled: true
 
-probePath: /
+probePath: /health
 livenessProbe:
   enabled: true
 readinessProbe:
