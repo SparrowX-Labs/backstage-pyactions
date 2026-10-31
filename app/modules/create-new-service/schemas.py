@@ -35,9 +35,9 @@ class CreateNewServiceParams(BaseModel):
 
     # Database configuration. The platform currently supports PostgreSQL only.
     database_enabled: bool = Field(alias="database-enabled")
+    database_enabled_prod: bool = Field(default=False, alias="database-enabled-prod")
     database_engine: Literal["postgres"] = Field(alias="database-engine")
     multi_az_enabled: bool = Field(default=True, alias="multi-az-enabled")
-    database_name: str = Field(default="", alias="database-name")
     database_version: Literal["16"] = Field(default="16", alias="database-version")
     database_size_dev: Literal["small", "medium", "large", "xlarge"] = Field(
         default="small",
@@ -53,6 +53,8 @@ class CreateNewServiceParams(BaseModel):
     # Optional object storage configuration.
     object_storage_enabled: bool = Field(alias="object-storage-enabled")
     object_storage_name: str = Field(default="", alias="object-storage-name")
+    object_storage_enabled_prod: bool = Field(default=False, alias="object-storage-enabled-prod")
+    object_storage_name_prod: str = Field(default="", alias="object-storage-name-prod")
 
     # Kubernetes deployment configuration.
     replica_count_dev: int = Field(alias="replica-count-dev", ge=1, le=10)

@@ -49,15 +49,15 @@ def _validate_request(params: CreateNewServiceParams) -> None:
             raise ValueError("pod-size-prod is required when prod-required is true")
 
 
-def _database_name(params: CreateNewServiceParams) -> str:
-    if params.database_name:
-        return params.database_name
-    return f"{params.service_name.split('-')[0]}-db"
+def _database_name(service_name: str) -> str:
+    return f"{service_name.split('-')[0]}-db"
 
 
 def _context(params: CreateNewServiceParams, environment: str) -> dict:
     is_frontend = params.runtime == "node"
-    database_enabled = params.database_enabled and not is_frontend
+    database_enabled = (
+        params.database_enabled if environment == "dev" else params.database_enabled_prod
+    ) and not is_frontend
     hostname = params.dev_hostname if environment == "dev" else params.prod_hostname
 
     return {
@@ -74,12 +74,16 @@ def _context(params: CreateNewServiceParams, environment: str) -> dict:
         "database_enabled": database_enabled,
         "database_engine": params.database_engine,
         "multi_az_enabled": params.multi_az_enabled if environment == "prod" else False,
-        "database_name": _database_name(params),
+        "database_name": _database_name(params.service_name),
         "database_version": params.database_version,
         "database_size": params.database_size_dev if environment == "dev" else params.database_size_prod,
         "database_storage": params.database_storage_dev if environment == "dev" else params.database_storage_prod,
-        "object_storage_enabled": params.object_storage_enabled,
-        "object_storage_name": params.object_storage_name,
+        "object_storage_enabled": (
+            params.object_storage_enabled if environment == "dev" else params.object_storage_enabled_prod
+        ),
+        "object_storage_name": (
+            params.object_storage_name if environment == "dev" else params.object_storage_name_prod
+        ),
         "replica_count": params.replica_count_dev if environment == "dev" else params.replica_count_prod,
         "pod_size": params.pod_size_dev if environment == "dev" else params.pod_size_prod,
         "enable_probes": params.enable_probes_dev if environment == "dev" else params.enable_probes_prod,
