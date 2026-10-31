@@ -50,11 +50,14 @@ class FakeProject:
 class FakeGitProvider:
     def __init__(self):
         self.merged_requests = []
+        self.projects = []
 
     def get_project(self, path):
+        self.projects.append(path)
         return FakeProject(path)
 
     def create_project(self, name, owner):
+        self.projects.append(f"{owner}/{name}")
         return FakeProject(f"{owner}/{name}")
 
     def create_branch(self, project, branch, source):
@@ -99,6 +102,11 @@ async def test_create_service_accepts_valid_payload(client, monkeypatch):
     assert len(data["merge_request_urls"]) == 4
     assert len(fake_git.merged_requests) == 4
     assert set(data["phase_status"].values()) == {"merged"}
+    assert fake_git.projects[:3] == [
+        "SparrowX-Labs/ArgoCD-Apps",
+        "SparrowX-Labs/crossplane",
+        "SparrowX-Labs/gateway-api",
+    ]
 
 
 def test_database_name_uses_platform_database_name_format():
