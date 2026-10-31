@@ -50,7 +50,7 @@ def _validate_request(params: CreateNewServiceParams) -> None:
 
 
 def _database_name(service_name: str) -> str:
-    return f"{service_name.split('-')[0]}-db"
+    return f"{service_name.split('-')[0]}db"
 
 
 def _context(params: CreateNewServiceParams, environment: str) -> dict:
