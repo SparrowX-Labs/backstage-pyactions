@@ -42,7 +42,7 @@ jobs:
   # #Promote Image to Dev Deployed, Only if dev quality gate is passed
   promote-image:
     name: Promote Image
-    needs: smoke-test
+    needs: argosync-candidate
     uses: SparrowX-Labs/workflows-templates/.github/workflows/promote-image.yaml@v2.0.0
     with:
       env-params-file: helm-values-dev.yaml

@@ -109,7 +109,9 @@ jobs:
   rollback:
     name: Restore Stable Production Image
     needs: prod-quality-gate
-    if: needs.prod-quality-gate.outputs.status == 'failed'
+    if: |
+      failure() ||
+      needs.prod-quality-gate.outputs.status == 'failed'
     uses: SparrowX-Labs/workflows-templates/.github/workflows/argosync.yaml@v2.0.0
     with:
       environment: prod
