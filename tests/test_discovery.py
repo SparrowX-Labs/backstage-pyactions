@@ -103,8 +103,8 @@ async def test_create_service_accepts_valid_payload(client, monkeypatch):
     assert len(fake_git.merged_requests) == 4
     assert set(data["phase_status"].values()) == {"merged"}
     assert fake_git.projects[:3] == [
-        "SparrowX-Labs/ArgoCD-Apps",
         "SparrowX-Labs/crossplane",
+        "SparrowX-Labs/ArgoCD-Apps",
         "SparrowX-Labs/gateway-api",
     ]
 
