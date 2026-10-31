@@ -28,6 +28,7 @@ jobs:
       ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
       ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
 
+  # Can't Run Smoke tests for now, because service isn't exposed publicaly, and pipeline is run on public runner
   # Run smoke tests against the deployed service.
   # smoke-test:
   #   name: Smoke Test Development
@@ -39,24 +40,24 @@ jobs:
   #     timeout: '120'
 
   # #Promote Image to Dev Deployed, Only if dev quality gate is passed
-  # promote-image:
-  #   name: Promote Image
-  #   needs: smoke-test
-  #   uses: SparrowX-Labs/workflows-templates/.github/workflows/promote-image.yaml@v2.0.0
-  #   with:
-  #     env-params-file: helm-values-dev.yaml
-  #     origin-image-tag: "dev-candidate"
-  #     new-image-tag: "dev-deployed"
+  promote-image:
+    name: Promote Image
+    needs: smoke-test
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/promote-image.yaml@v2.0.0
+    with:
+      env-params-file: helm-values-dev.yaml
+      origin-image-tag: "dev-candidate"
+      new-image-tag: "dev-deployed"
 
   # #Update deployment to reflect the successful promotion status
-  # argosync-deployed:
-  #   name: argosync-deployed
-  #   needs: promote-image
-  #   uses: SparrowX-Labs/workflows-templates/.github/workflows/argosync.yaml@v2.0.0
-  #   with:
-  #     environment: dev
-  #     env-params-file: helm-values-dev.yaml
-  #     image-tag: "dev-deployed"
-  #   secrets:
-  #     ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
-  #     ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+  argosync-deployed:
+    name: argosync-deployed
+    needs: promote-image
+    uses: SparrowX-Labs/workflows-templates/.github/workflows/argosync.yaml@v2.0.0
+    with:
+      environment: dev
+      env-params-file: helm-values-dev.yaml
+      image-tag: "dev-deployed"
+    secrets:
+      ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+      ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}

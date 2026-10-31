@@ -48,6 +48,9 @@ class FakeProject:
 
 
 class FakeGitProvider:
+    def __init__(self):
+        self.merged_requests = []
+
     def get_project(self, path):
         return FakeProject(path)
 
@@ -62,6 +65,9 @@ class FakeGitProvider:
 
     def create_merge_request(self, project, source_branch, target_branch):
         return f"https://github.com/example/pull/{source_branch}"
+
+    def merge_merge_request(self, project, source_branch, target_branch):
+        self.merged_requests.append((source_branch, target_branch))
 
 
 async def test_modules_registered(client):
@@ -82,7 +88,8 @@ async def test_create_service_returns_validation_error(client):
 async def test_create_service_accepts_valid_payload(client, monkeypatch):
     """The new service module validates and provisions through the Git provider."""
     module = importlib.import_module("app.modules.create-new-service.module")
-    monkeypatch.setattr(module, "get_git_provider", lambda provider: FakeGitProvider())
+    fake_git = FakeGitProvider()
+    monkeypatch.setattr(module, "get_git_provider", lambda provider: fake_git)
 
     response = await client.post("/create-new-service", json=valid_create_service_payload())
     assert response.status_code == 200
@@ -90,3 +97,5 @@ async def test_create_service_accepts_valid_payload(client, monkeypatch):
     assert data["status"] == "success"
     assert data["service_name"] == "test-service"
     assert len(data["merge_request_urls"]) == 4
+    assert len(fake_git.merged_requests) == 4
+    assert set(data["phase_status"].values()) == {"merged"}

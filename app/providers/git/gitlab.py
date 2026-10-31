@@ -101,6 +101,23 @@ class GitLabProvider(GitProvider):
                 return mr.web_url
             raise
 
+    def merge_merge_request(
+        self, project, source_branch: str, target_branch: str
+    ) -> None:
+        merge_requests = project.mergerequests.list(state="opened")
+        for merge_request in merge_requests:
+            if (
+                merge_request.source_branch == source_branch
+                and merge_request.target_branch == target_branch
+            ):
+                merge_request.merge(should_remove_source_branch=True)
+                logger.info(f"Merge request merged: {merge_request.web_url}")
+                return
+        logger.info(
+            f"No open merge request found for {source_branch} -> {target_branch}; "
+            "it may already be merged"
+        )
+
     def create_project(
         self, name: str, namespace_path: str, visibility: str = "private"
     ):

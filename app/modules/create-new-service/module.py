@@ -157,7 +157,8 @@ def _provision_repository(
     if not commit_url:
         raise RuntimeError(f"GitHub commit failed for {repository_path} on branch {branch}")
     pull_request = git.create_merge_request(project, branch, "main")
-    logger.append(f"Created pull request for {repository_path}: {pull_request}")
+    git.merge_merge_request(project, branch, "main")
+    logger.append(f"Created and merged pull request for {repository_path}: {pull_request}")
     return pull_request
 
 
@@ -216,7 +217,7 @@ async def handler(params: CreateNewServiceParams):
                         f"Add {params.service_name} configuration",
                     )
                 )
-                phase_status[phase_name] = "created"
+                phase_status[phase_name] = "merged"
             except Exception as exc:
                 phase_status[phase_name] = "failed"
                 errors.append(f"{phase_name}: {exc}")
@@ -260,9 +261,10 @@ async def handler(params: CreateNewServiceParams):
         if not commit_url:
             raise RuntimeError(f"GitHub commit failed for service repository {params.service_name}")
         service_pr = git.create_merge_request(service_project, service_branch, "main")
+        git.merge_merge_request(service_project, service_branch, "main")
         merge_request_urls.append(service_pr)
-        phase_status["Service repository"] = "created"
-        logger.append(f"Created service repository pull request: {service_pr}")
+        phase_status["Service repository"] = "merged"
+        logger.append(f"Created and merged service repository pull request: {service_pr}")
 
         return {
             "status": "success",

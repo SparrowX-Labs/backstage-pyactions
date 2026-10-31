@@ -31,6 +31,13 @@ class GitProvider(ABC):
         ...
 
     @abstractmethod
+    def merge_merge_request(
+        self, project, source_branch: str, target_branch: str
+    ) -> None:
+        """Merge the open request for source_branch into target_branch."""
+        ...
+
+    @abstractmethod
     def create_project(
         self, name: str, namespace_path: str, visibility: str = "private"
     ):
