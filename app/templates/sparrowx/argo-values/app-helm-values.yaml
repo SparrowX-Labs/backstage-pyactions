@@ -18,7 +18,7 @@ database:
   name: [[ database_name ]]
   engine: [[ database_engine ]]
   port: 5432
-  host: [[ service_name ]]-postgres.[[ environment ]].sparrowx.internal
+  host: [[ database_name ]]-[[ database_engine ]].[[ environment ]].sparrowx.internal
 {% endif %}
 
 servicemonitor:
