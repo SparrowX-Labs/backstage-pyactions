@@ -99,3 +99,9 @@ async def test_create_service_accepts_valid_payload(client, monkeypatch):
     assert len(data["merge_request_urls"]) == 4
     assert len(fake_git.merged_requests) == 4
     assert set(data["phase_status"].values()) == {"merged"}
+
+
+def test_database_name_uses_platform_database_name_format():
+    module = importlib.import_module("app.modules.create-new-service.module")
+
+    assert module._database_name("task-api") == "taskdb"
