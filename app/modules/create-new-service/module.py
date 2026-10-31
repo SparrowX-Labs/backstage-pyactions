@@ -192,8 +192,8 @@ async def handler(params: CreateNewServiceParams):
             )
 
         generated_by_target: dict[str, dict[str, str]] = {
-            "crossplane": {},
             "argocd": {},
+            "crossplane": {},
             "gateway": {},
         }
         environments = ("dev", "prod") if params.prod_required else ("dev",)
