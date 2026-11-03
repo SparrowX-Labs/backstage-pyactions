@@ -53,6 +53,8 @@ This project is designed with **Kubernetes deployment in mind**. The recommended
 
 By default, the Helm chart pulls a pre-built Docker image (`mawad98/backstage-pyactions:demo`) from Docker Hub. This can be overridden with your own image.
 
+When deployed as a SparrowX platform service, the repository inherits shared organization variables and secrets. Define `HEALTH_CHECK_PATH` and optionally override `AWS_ROLE_NAME`; AWS account/region, environment URLs, and Argo CD credentials are shared.
+
 For the full Kubernetes deployment guide (configuration, secrets, network policy, upgrades), see [Kubernetes Deployment Guide](docs/k8s-deployment/README.md).
 
 | Method     | Command                                                                   |
